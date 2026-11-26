@@ -349,10 +349,4 @@ El frontend no tiene pruebas automatizadas. Se verifica con `npm run lint`, `npm
 
 ## Uso de IA
 
-### Herramientas utilizadas
-
-### En qué partes se usó
-
-### Cómo se revisó y validó lo generado
-
-### Qué se hizo o decidió sin IA
+Se usó un asistente de IA como apoyo para escribir código y documentación. Todo lo generado se revisó y se validó con las pruebas automatizadas y probando la aplicación.
