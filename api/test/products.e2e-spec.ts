@@ -111,6 +111,82 @@ describe('Products (e2e)', () => {
     });
   });
 
+  describe('PUT /api/products/:id', () => {
+    it('reemplaza los datos y responde 200 (conservar el propio SKU no es conflicto)', async () => {
+      const mesa = await http().post('/api/products').send(validProduct).expect(201);
+
+      const res = await http()
+        .put(`/api/products/${mesa.body.id}`)
+        .send({ sku: 'SKU-001', name: 'Mesa de pino', price: 150, stock: 8 })
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        id: mesa.body.id,
+        sku: 'SKU-001',
+        name: 'Mesa de pino',
+        price: 150,
+        stock: 8,
+      });
+      const actual = await http().get(`/api/products/${mesa.body.id}`).expect(200);
+      expect(actual.body).toEqual(res.body);
+    });
+
+    it('sin stock conserva el valor actual', async () => {
+      const mesa = await http().post('/api/products').send(validProduct).expect(201);
+
+      const res = await http()
+        .put(`/api/products/${mesa.body.id}`)
+        .send({ sku: 'SKU-001', name: 'Mesa de pino', price: 150 })
+        .expect(200);
+
+      expect(res.body.stock).toBe(3);
+    });
+
+    it.each([
+      ['sku', 'El SKU es obligatorio'],
+      ['name', 'El nombre es obligatorio'],
+      ['price', 'El precio es obligatorio'],
+    ])('sin %s responde 400 y no modifica el producto', async (field, message) => {
+      const mesa = await http().post('/api/products').send(validProduct).expect(201);
+      const { [field as keyof typeof validProduct]: _omitted, ...incompleto } = validProduct;
+
+      const res = await http()
+        .put(`/api/products/${mesa.body.id}`)
+        .send(incompleto)
+        .expect(400);
+
+      expect(res.body.message).toEqual([message]);
+      const actual = await http().get(`/api/products/${mesa.body.id}`).expect(200);
+      expect(actual.body).toEqual(mesa.body);
+    });
+
+    it('con price 0 o stock negativo responde 400', async () => {
+      const mesa = await http().post('/api/products').send(validProduct).expect(201);
+
+      await http()
+        .put(`/api/products/${mesa.body.id}`)
+        .send({ ...validProduct, price: 0 })
+        .expect(400);
+      await http()
+        .put(`/api/products/${mesa.body.id}`)
+        .send({ ...validProduct, stock: -1 })
+        .expect(400);
+    });
+
+    it('con el SKU de otro producto responde 409', async () => {
+      const mesa = await http().post('/api/products').send(validProduct).expect(201);
+      await http()
+        .post('/api/products')
+        .send({ sku: 'SKU-002', name: 'Silla', price: 49.5 })
+        .expect(201);
+
+      await http()
+        .put(`/api/products/${mesa.body.id}`)
+        .send({ ...validProduct, sku: 'SKU-002' })
+        .expect(409);
+    });
+  });
+
   describe('GET /api/products paginado', () => {
     // Crea 12 productos: P-01 ... P-12
     async function seed(count: number) {
@@ -166,6 +242,7 @@ describe('Products (e2e)', () => {
   describe('id inexistente', () => {
     it.each([
       ['GET', () => http().get('/api/products/999')],
+      ['PUT', () => http().put('/api/products/999').send(validProduct)],
       ['PATCH', () => http().patch('/api/products/999').send({ price: 10 })],
       ['DELETE', () => http().delete('/api/products/999')],
     ])('%s /api/products/999 responde 404', async (_method, send) => {

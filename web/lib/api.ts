@@ -4,7 +4,6 @@ import type {
   ProductInput,
   ProductListParams,
   ProductPage,
-  ProductUpdate,
 } from './types';
 
 export { ApiError } from './api-error';
@@ -82,9 +81,9 @@ export function createProduct(input: ProductInput): Promise<Product> {
   });
 }
 
-export function updateProduct(id: number, input: ProductUpdate): Promise<Product> {
+export function updateProduct(id: number, input: ProductInput): Promise<Product> {
   return request<Product>(`${PRODUCTS_URL}/${id}`, {
-    method: 'PATCH',
+    method: 'PUT',
     body: JSON.stringify(input),
   });
 }

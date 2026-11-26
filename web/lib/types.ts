@@ -18,8 +18,6 @@ export interface ProductInput {
   stock?: number;
 }
 
-export type ProductUpdate = Partial<ProductInput>;
-
 /** Respuesta de GET /api/products */
 export interface ProductPage {
   items: Product[];

@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import {
@@ -67,6 +68,26 @@ export class ProductsController {
   @ApiConflictResponse({ description: 'El SKU ya existe', type: ErrorResponseDto })
   create(@Body() dto: CreateProductDto): Promise<Product> {
     return this.productsService.create(dto);
+  }
+
+  @Put(':id')
+  @ApiOperation({
+    summary: 'Actualizar un producto (reemplazo)',
+    description:
+      'Exige sku, name y price, igual que al crear. Si se omite stock se conserva el actual. Conservar el SKU propio no es conflicto.',
+  })
+  @ApiIdParam()
+  @ApiOkResponse({ type: Product })
+  @ApiNotFoundResponse({ description: 'El producto no existe', type: ErrorResponseDto })
+  @ApiConflictResponse({
+    description: 'El SKU pertenece a otro producto',
+    type: ErrorResponseDto,
+  })
+  replace(
+    @Param('id', ParseIdPipe) id: number,
+    @Body() dto: CreateProductDto,
+  ): Promise<Product> {
+    return this.productsService.update(id, dto);
   }
 
   @Patch(':id')

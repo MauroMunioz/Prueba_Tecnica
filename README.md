@@ -163,6 +163,7 @@ Todas las rutas están bajo el prefijo `/api`.
 | GET | `/api/products` | Lista los productos paginados, ordenados por id. Acepta `q`, `page` y `limit`. | 200, 400 |
 | GET | `/api/products/:id` | Obtiene un producto. | 200, 400, 404 |
 | POST | `/api/products` | Crea un producto. | 201, 400, 409 |
+| PUT | `/api/products/:id` | Actualiza el producto: exige `sku`, `name` y `price`; si falta `stock` se conserva. | 200, 400, 404, 409 |
 | PATCH | `/api/products/:id` | Actualiza solo los campos enviados. | 200, 400, 404, 409 |
 | DELETE | `/api/products/:id` | Elimina un producto. | 204, 400, 404 |
 
@@ -170,7 +171,7 @@ Todas las rutas están bajo el prefijo `/api`.
 
 - **400:** datos inválidos, un parámetro de consulta no permitido o un id que no es un entero positivo.
 - **404:** el producto no existe.
-- **409:** el SKU ya pertenece a otro producto. En `PATCH`, conservar el SKU propio no es conflicto.
+- **409:** el SKU ya pertenece a otro producto. En `PUT` y `PATCH`, conservar el SKU propio no es conflicto.
 
 **Reglas de validación:**
 
@@ -217,7 +218,12 @@ curl "http://localhost:3000/api/products?q=100%25"
 # Obtener uno (200, o 404 si no existe)
 curl http://localhost:3000/api/products/1
 
-# Actualizar algunos campos (200)
+# Actualizar con PUT: sku, name y price obligatorios (200)
+curl -X PUT http://localhost:3000/api/products/1 \
+  -H "Content-Type: application/json" \
+  -d '{"sku":"SKU-001","name":"Mesa de pino","price":150,"stock":10}'
+
+# Actualizar algunos campos con PATCH (200)
 curl -X PATCH http://localhost:3000/api/products/1 \
   -H "Content-Type: application/json" \
   -d '{"price":150,"stock":10}'
@@ -255,7 +261,7 @@ npm install
 npm test
 ```
 
-`npm test` corre las pruebas unitarias y las e2e (36 en total). También se pueden correr por separado con `npm run test:unit` y `npm run test:e2e`.
+`npm test` corre las pruebas unitarias y las e2e (44 en total). También se pueden correr por separado con `npm run test:unit` y `npm run test:e2e`.
 
 **Unitarias (`api/src/products/products.service.spec.ts`, 14 pruebas).** Prueban `ProductsService` con el repositorio reemplazado por mocks de Jest:
 
@@ -265,12 +271,13 @@ npm test
 - `DuplicateSkuError` se convierte en 409 al crear y al actualizar.
 - Otros errores del repositorio se propagan sin transformarse.
 
-**E2e (`api/test/products.e2e-spec.ts`, 22 pruebas).** Hacen peticiones HTTP reales con supertest contra la aplicación Nest: controller, service, `ValidationPipe` global y el prefijo `/api`. Cubren:
+**E2e (`api/test/products.e2e-spec.ts`, 30 pruebas).** Hacen peticiones HTTP reales con supertest contra la aplicación Nest: controller, service, `ValidationPipe` global y el prefijo `/api`. Cubren:
 
 - crear un producto válido → 201, con el SKU recortado y la respuesta completa;
 - `price` 0 → 400, y sin `name` → 400, con sus mensajes;
 - SKU repetido → 409;
-- id inexistente en `GET`, `PATCH` y `DELETE` → 404;
+- `PUT` completo, sin campos obligatorios, con SKU de otro producto y sin `stock`;
+- id inexistente en `GET`, `PUT`, `PATCH` y `DELETE` → 404;
 - actualizar y luego eliminar, comprobando que ambos cambios se reflejan en el listado;
 - `null` en `sku`, `name`, `price` o `stock` → 400 (no 500), sin modificar el producto;
 - paginación: valores por defecto, tramo correcto con `page` y `limit`, total que respeta la búsqueda, y 400 con `page` o `limit` inválidos.
@@ -352,7 +359,7 @@ El frontend no tiene pruebas automatizadas. Se verifica con `npm run lint`, `npm
 - **El SKU único lo garantiza la base.** No consulto si el SKU existe antes de insertar, porque dos peticiones simultáneas podrían pasar la consulta a la vez. El índice único `uq_products_sku` es la única fuente de verdad.
 - **Actualización con `UPDATE` directo.** Al principio usaba `findOneBy` y después `save()`. Pero `save()` inserta la fila si ya no existe, así que si otra petición borraba el producto en medio, el `PATCH` lo volvía a crear. Lo cambié por un `UPDATE` que revisa las filas afectadas, y agregué una prueba de integración que reproduce el caso.
 - **Validación estricta.** El `ValidationPipe` global usa `whitelist`, `forbidNonWhitelisted` y `stopAtFirstError`: rechaza propiedades desconocidas (un `prize` mal escrito no se ignora en silencio) y devuelve un mensaje por campo, en español. Un `null` se valida igual que cualquier otro valor; antes pasaba la validación y terminaba en un 500 de MySQL. Los ids de ruta usan un pipe propio (`ParseIdPipe`), porque `ParseIntPipe` acepta negativos.
-- **`PATCH` y no `PUT`.** Permite actualizar solo los campos enviados, que es lo que hace el formulario.
+- **`PUT` y `PATCH`.** `PUT` es el reemplazo que pide el enunciado: valida igual que el `POST` (`sku`, `name` y `price` obligatorios) y, si se omite `stock`, conserva el actual en vez de ponerlo en 0. `PATCH` se mantiene para actualizar solo los campos enviados; el formulario usa `PUT` porque siempre envía todos los campos. Los dos comparten el mismo `UPDATE` del repositorio.
 - **Una sola configuración para la app y las pruebas.** `configureApp()` aplica el prefijo `/api` y el `ValidationPipe`, y la usan tanto `main.ts` como los tests. Así las pruebas validan exactamente lo mismo que producción.
 
 ### Base de datos
