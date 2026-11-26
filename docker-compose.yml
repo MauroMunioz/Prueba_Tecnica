@@ -1,0 +1,63 @@
+# Levantar todo desde un clone limpio: docker compose up -d --build
+# Las variables se leen del .env de la raiz; si no existe se usan los valores por defecto.
+name: pretrabajo
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${DB_DATABASE:-pretrabajo}
+      MYSQL_USER: ${DB_USERNAME:-app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Solo se ejecuta cuando el volumen esta vacio (primer arranque)
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      # 127.0.0.1 fuerza TCP: el servidor temporal que aplica schema.sql no escucha
+      # por red, asi que solo da healthy cuando la base ya esta lista
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      # Nombre del servicio en la red de compose, no localhost
+      DB_HOST: mysql
+      # Puerto interno del contenedor, independiente del publicado en el host
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-pretrabajo}
+      DB_USERNAME: ${DB_USERNAME:-app}
+      DB_PASSWORD: ${DB_PASSWORD:-app_password}
+    ports:
+      - "${API_PORT:-3000}:3000"
+
+  web:
+    build:
+      context: ./web
+      args:
+        # El navegador llama a /api en el mismo origen y el servidor de Next lo
+        # reenvia a la API por la red interna. Queda fijo en el build.
+        API_URL: http://api:3000
+        NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-COP}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-3001}:3001"
+
+volumes:
+  mysql_data:

@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Interfaz solo en modo claro: evita que el navegador oscurezca controles nativos */
+:root {
+  color-scheme: light;
+}
+
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
