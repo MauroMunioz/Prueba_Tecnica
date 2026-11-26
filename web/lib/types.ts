@@ -19,3 +19,21 @@ export interface ProductInput {
 }
 
 export type ProductUpdate = Partial<ProductInput>;
+
+/** Respuesta de GET /api/products */
+export interface ProductPage {
+  items: Product[];
+  /** Productos que cumplen la busqueda, en todas las paginas */
+  total: number;
+  page: number;
+  limit: number;
+  /** 0 si no hay productos */
+  totalPages: number;
+}
+
+export interface ProductListParams {
+  q?: string;
+  /** Empieza en 1 */
+  page: number;
+  limit: number;
+}

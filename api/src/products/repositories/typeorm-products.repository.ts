@@ -6,6 +6,8 @@ import { DuplicateSkuError } from '../errors/duplicate-sku.error';
 import {
   CreateProductData,
   FindProductsFilter,
+  Page,
+  PageRequest,
   ProductsRepository,
   UpdateProductData,
 } from './products.repository';
@@ -24,7 +26,10 @@ export class TypeOrmProductsRepository extends ProductsRepository {
     super();
   }
 
-  findAll(filter: FindProductsFilter = {}): Promise<Product[]> {
+  async findAll(
+    filter: FindProductsFilter = {},
+    page?: PageRequest,
+  ): Promise<Page<Product>> {
     const query = this.repo
       .createQueryBuilder('product')
       .orderBy('product.id', 'ASC');
@@ -36,7 +41,13 @@ export class TypeOrmProductsRepository extends ProductsRepository {
       });
     }
 
-    return query.getMany();
+    if (page) {
+      query.skip(page.offset).take(page.limit);
+    }
+
+    // Un SELECT para la pagina y un COUNT con el mismo filtro para el total
+    const [items, total] = await query.getManyAndCount();
+    return { items, total };
   }
 
   findById(id: number): Promise<Product | null> {

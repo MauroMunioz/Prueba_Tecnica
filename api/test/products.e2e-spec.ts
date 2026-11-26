@@ -78,14 +78,14 @@ describe('Products (e2e)', () => {
         .send({ ...validProduct, stock: null })
         .expect(400);
 
-      expect(res.body.message).toEqual(['El stock debe ser un numero entero']);
+      expect(res.body.message).toEqual(['El stock debe ser un número entero']);
     });
 
     it.each([
       ['sku', 'El SKU es obligatorio'],
       ['name', 'El nombre es obligatorio'],
       ['price', 'El precio es obligatorio'],
-      ['stock', 'El stock debe ser un numero entero'],
+      ['stock', 'El stock debe ser un número entero'],
     ])('PATCH con %s null responde 400 y no modifica el producto', async (field, message) => {
       const mesa = await http().post('/api/products').send(validProduct).expect(201);
 
@@ -108,6 +108,58 @@ describe('Products (e2e)', () => {
         .expect(200);
 
       expect(res.body).toEqual({ ...mesa.body, stock: 10 });
+    });
+  });
+
+  describe('GET /api/products paginado', () => {
+    // Crea 12 productos: P-01 ... P-12
+    async function seed(count: number) {
+      for (let i = 1; i <= count; i++) {
+        const n = String(i).padStart(2, '0');
+        await http()
+          .post('/api/products')
+          .send({ sku: `P-${n}`, name: `Producto ${n}`, price: 10 })
+          .expect(201);
+      }
+    }
+
+    it('sin parametros devuelve la primera pagina de 10', async () => {
+      await seed(12);
+
+      const res = await http().get('/api/products').expect(200);
+
+      expect(res.body).toMatchObject({ total: 12, page: 1, limit: 10, totalPages: 2 });
+      expect(res.body.items).toHaveLength(10);
+    });
+
+    it('page y limit eligen el tramo correcto', async () => {
+      await seed(12);
+
+      const res = await http().get('/api/products?page=3&limit=5').expect(200);
+
+      expect(res.body).toMatchObject({ total: 12, page: 3, limit: 5, totalPages: 3 });
+      expect(res.body.items.map((p: { sku: string }) => p.sku)).toEqual(['P-11', 'P-12']);
+    });
+
+    it('el total y las paginas respetan la busqueda', async () => {
+      await seed(12);
+
+      const res = await http().get('/api/products?q=producto 1&limit=5').expect(200);
+
+      // Producto 10, 11 y 12
+      expect(res.body).toMatchObject({ total: 3, totalPages: 1 });
+    });
+
+    it.each([
+      ['page=0', 'La página debe ser mayor o igual a 1'],
+      ['page=abc', 'La página debe ser un número entero'],
+      ['limit=0', 'El tamaño de página debe ser mayor o igual a 1'],
+      ['limit=101', 'El tamaño de página no puede superar 100'],
+      ['limit=2.5', 'El tamaño de página debe ser un número entero'],
+    ])('%s responde 400', async (params, message) => {
+      const res = await http().get(`/api/products?${params}`).expect(400);
+
+      expect(res.body.message).toEqual([message]);
     });
   });
 
@@ -138,8 +190,8 @@ describe('Products (e2e)', () => {
         .expect(200);
 
       const despuesDeActualizar = await http().get('/api/products').expect(200);
-      expect(despuesDeActualizar.body).toHaveLength(2);
-      expect(despuesDeActualizar.body[0]).toMatchObject({
+      expect(despuesDeActualizar.body.items).toHaveLength(2);
+      expect(despuesDeActualizar.body.items[0]).toMatchObject({
         id: mesa.body.id,
         sku: 'SKU-001',
         name: 'Mesa de pino',
@@ -154,8 +206,8 @@ describe('Products (e2e)', () => {
       expect(borrado.text).toBe('');
 
       const despuesDeEliminar = await http().get('/api/products').expect(200);
-      expect(despuesDeEliminar.body).toHaveLength(1);
-      expect(despuesDeEliminar.body[0].sku).toBe('SKU-002');
+      expect(despuesDeEliminar.body.items).toHaveLength(1);
+      expect(despuesDeEliminar.body.items[0].sku).toBe('SKU-002');
 
       await http().get(`/api/products/${mesa.body.id}`).expect(404);
     });

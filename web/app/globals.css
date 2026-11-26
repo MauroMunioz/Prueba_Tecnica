@@ -5,6 +5,28 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Colores de la marca TensorTec, tomados del logo: azul #1a3a62 y rojo #e2282a */
+@theme {
+  --color-brand-50: #f0f5fb;
+  --color-brand-100: #dde7f4;
+  --color-brand-200: #c2d4eb;
+  --color-brand-300: #98b7dc;
+  --color-brand-400: #6893c9;
+  --color-brand-500: #4574b5;
+  --color-brand-600: #335b98;
+  --color-brand-700: #2a4a7c;
+  --color-brand-800: #1a3a62;
+  --color-brand-900: #162f50;
+  --color-brand-950: #0f1f36;
+
+  --color-accent-50: #fef2f2;
+  --color-accent-100: #fde3e3;
+  --color-accent-200: #fbcbcb;
+  --color-accent-500: #e2282a;
+  --color-accent-600: #c81e20;
+  --color-accent-700: #a8181a;
+}
+
 /* Interfaz solo en modo claro: evita que el navegador oscurezca controles nativos */
 :root {
   color-scheme: light;
@@ -12,4 +34,99 @@
 
 body {
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Scroll sin barra visible: se desplaza con rueda, touch o teclado, pero la barra no se dibuja */
+html,
+.no-scrollbar {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Modal: entra desde abajo con un leve zoom; sale al reves. data-state lo pone ui/Modal,
+   que espera a que termine la salida antes de cerrar el <dialog> */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+}
+@keyframes modal-out {
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+dialog[data-state="open"] {
+  animation: modal-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+dialog[data-state="open"]::backdrop {
+  animation: fade-in 240ms ease-out;
+}
+dialog[data-state="closed"] {
+  animation: modal-out 180ms ease-in forwards;
+}
+dialog[data-state="closed"]::backdrop {
+  animation: fade-out 180ms ease-in forwards;
+}
+
+/* Fila eliminada: se tine de rojo y se desliza fuera antes de recargar la lista */
+@keyframes row-out {
+  0% {
+    background-color: var(--color-accent-50);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(32px);
+    background-color: var(--color-accent-50);
+  }
+}
+.animate-row-out {
+  animation: row-out 320ms ease-in forwards;
+  pointer-events: none;
+}
+
+/* Fila creada o editada: destello suave para ubicarla */
+@keyframes row-flash {
+  from {
+    background-color: var(--color-brand-100);
+  }
+}
+.animate-row-flash {
+  animation: row-flash 1.6s ease-out;
+}
+
+/* Avisos */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+.animate-toast-in {
+  animation: toast-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  ::backdrop {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
 }

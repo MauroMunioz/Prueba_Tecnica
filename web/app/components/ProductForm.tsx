@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { Boxes, DollarSign, LoaderCircle, Plus, Save, ScanBarcode, Tag } from 'lucide-react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ApiError, createProduct, updateProduct } from '@/lib/api';
 import { toFormErrors } from '@/lib/form-errors';
 import { CURRENCY } from '@/lib/format';
@@ -31,7 +32,8 @@ function initialValues(product?: Product): ProductFormValues {
   return {
     sku: product?.sku ?? '',
     name: product?.name ?? '',
-    price: product ? String(product.price) : '',
+    // Coma decimal, como se escribe en Ecuador; la validacion acepta coma o punto
+    price: product ? String(product.price).replace('.', ',') : '',
     stock: product ? String(product.stock) : '0',
   };
 }
@@ -107,7 +109,10 @@ export function ProductForm({
   return (
     <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-4">
       {formError && (
-        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p
+          role="alert"
+          className="rounded-lg border border-accent-100 bg-accent-50 px-3 py-2 text-sm text-accent-700"
+        >
           {formError}
         </p>
       )}
@@ -115,6 +120,7 @@ export function ProductForm({
       <Field
         id="sku"
         label="SKU"
+        icon={<ScanBarcode />}
         value={values.sku}
         error={errors.sku}
         maxLength={PRODUCT_LIMITS.skuMaxLength}
@@ -128,6 +134,7 @@ export function ProductForm({
       <Field
         id="name"
         label="Nombre"
+        icon={<Tag />}
         value={values.name}
         error={errors.name}
         maxLength={PRODUCT_LIMITS.nameMaxLength}
@@ -140,10 +147,11 @@ export function ProductForm({
         <Field
           id="price"
           label={`Precio (${CURRENCY})`}
+          icon={<DollarSign />}
           value={values.price}
           error={errors.price}
           inputMode="decimal"
-          placeholder="0.00"
+          placeholder="0,00"
           hint="Mayor que 0, hasta 2 decimales"
           onChange={(v) => handleChange('price', v)}
           onBlur={() => handleBlur('price')}
@@ -151,6 +159,7 @@ export function ProductForm({
         <Field
           id="stock"
           label="Stock"
+          icon={<Boxes />}
           value={values.stock}
           error={errors.stock}
           inputMode="numeric"
@@ -165,6 +174,7 @@ export function ProductForm({
           Cancelar
         </Button>
         <Button type="submit" disabled={submitting}>
+          {submitting ? <LoaderCircle className="animate-spin" /> : isEdit ? <Save /> : <Plus />}
           {submitting ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear producto'}
         </Button>
       </div>
@@ -175,6 +185,7 @@ export function ProductForm({
 interface FieldProps {
   id: ProductField;
   label: string;
+  icon: ReactNode;
   value: string;
   error?: string;
   hint?: string;
@@ -190,6 +201,7 @@ interface FieldProps {
 function Field({
   id,
   label,
+  icon,
   value,
   error,
   hint,
@@ -210,28 +222,36 @@ function Field({
       <label htmlFor={inputId} className="block text-sm font-medium text-slate-700">
         {label}
       </label>
-      <input
-        id={inputId}
-        name={id}
-        type="text"
-        inputMode={inputMode}
-        autoComplete="off"
-        autoFocus={autoFocus}
-        value={value}
-        placeholder={placeholder}
-        maxLength={maxLength}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={message ? messageId : undefined}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={onBlur}
-        className={`mt-1 h-10 w-full rounded-lg border bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:outline-none ${
-          error
-            ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
-            : 'border-slate-300 focus:border-slate-500 focus:ring-slate-200'
-        } ${className}`}
-      />
+      <div className="relative mt-1.5">
+        <span
+          aria-hidden="true"
+          className={`pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 [&_svg]:size-4 ${error ? 'text-accent-500' : 'text-slate-400'}`}
+        >
+          {icon}
+        </span>
+        <input
+          id={inputId}
+          name={id}
+          type="text"
+          inputMode={inputMode}
+          autoComplete="off"
+          autoFocus={autoFocus}
+          value={value}
+          placeholder={placeholder}
+          maxLength={maxLength}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={message ? messageId : undefined}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
+          className={`h-10 w-full rounded-lg border bg-white pr-3 pl-9 text-sm text-slate-900 shadow-xs transition-shadow placeholder:text-slate-400 focus:ring-4 focus:outline-none ${
+            error
+              ? 'border-accent-500 focus:border-accent-500 focus:ring-accent-100'
+              : 'border-slate-300 focus:border-brand-500 focus:ring-brand-100'
+          } ${className}`}
+        />
+      </div>
       {message && (
-        <p id={messageId} className={`mt-1 text-xs ${error ? 'text-red-600' : 'text-slate-500'}`}>
+        <p id={messageId} className={`mt-1.5 text-xs ${error ? 'text-accent-600' : 'text-slate-500'}`}>
           {message}
         </p>
       )}

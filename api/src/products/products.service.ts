@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
+import { FindProductsQueryDto } from './dto/find-products-query.dto';
+import { PaginatedProductsDto } from './dto/paginated-products.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
 import { DuplicateSkuError } from './errors/duplicate-sku.error';
@@ -13,8 +15,18 @@ import { ProductsRepository } from './repositories/products.repository';
 export class ProductsService {
   constructor(private readonly products: ProductsRepository) {}
 
-  findAll(q?: string): Promise<Product[]> {
-    return this.products.findAll({ name: q || undefined });
+  async findAll({
+    q,
+    page,
+    limit,
+  }: FindProductsQueryDto): Promise<PaginatedProductsDto> {
+    const { items, total } = await this.products.findAll(
+      { name: q || undefined },
+      { offset: (page - 1) * limit, limit },
+    );
+    // Una pagina fuera de rango no es error: devuelve items vacio y el total real,
+    // asi el cliente puede volver a la ultima pagina
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async findOne(id: number): Promise<Product> {

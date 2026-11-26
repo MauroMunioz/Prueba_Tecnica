@@ -39,17 +39,49 @@ describe('ProductsService', () => {
 
   describe('findAll', () => {
     it('pasa el texto de busqueda al repositorio como filtro por nombre', async () => {
-      repo.findAll.mockResolvedValue([buildProduct()]);
+      repo.findAll.mockResolvedValue({ items: [buildProduct()], total: 1 });
 
-      await expect(service.findAll('mesa')).resolves.toHaveLength(1);
-      expect(repo.findAll).toHaveBeenCalledWith({ name: 'mesa' });
+      const result = await service.findAll({ q: 'mesa', page: 1, limit: 10 });
+
+      expect(result.items).toHaveLength(1);
+      expect(repo.findAll).toHaveBeenCalledWith(
+        { name: 'mesa' },
+        { offset: 0, limit: 10 },
+      );
     });
 
     it('no filtra cuando q viene vacio', async () => {
-      repo.findAll.mockResolvedValue([]);
+      repo.findAll.mockResolvedValue({ items: [], total: 0 });
 
-      await service.findAll('');
-      expect(repo.findAll).toHaveBeenCalledWith({ name: undefined });
+      await service.findAll({ q: '', page: 1, limit: 10 });
+      expect(repo.findAll).toHaveBeenCalledWith(
+        { name: undefined },
+        { offset: 0, limit: 10 },
+      );
+    });
+
+    it('convierte pagina y tamano en offset y calcula el total de paginas', async () => {
+      repo.findAll.mockResolvedValue({ items: [buildProduct()], total: 23 });
+
+      const result = await service.findAll({ page: 3, limit: 5 });
+
+      expect(repo.findAll).toHaveBeenCalledWith(
+        { name: undefined },
+        { offset: 10, limit: 5 },
+      );
+      expect(result).toMatchObject({ total: 23, page: 3, limit: 5, totalPages: 5 });
+    });
+
+    it('sin productos hay 0 paginas', async () => {
+      repo.findAll.mockResolvedValue({ items: [], total: 0 });
+
+      await expect(service.findAll({ page: 1, limit: 5 })).resolves.toEqual({
+        items: [],
+        total: 0,
+        page: 1,
+        limit: 5,
+        totalPages: 0,
+      });
     });
   });
 

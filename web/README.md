@@ -15,7 +15,6 @@ npm run dev        # http://localhost:3001
 Variables (opcionales, ver `.env.example`):
 
 - `API_URL`: direccion de la API. Next reenvia `/api/*` a `${API_URL}/api/*`.
-- `NEXT_PUBLIC_CURRENCY`: `COP` (por defecto) o `USD`.
 
 ## Comandos
 

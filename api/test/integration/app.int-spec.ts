@@ -50,7 +50,7 @@ describe('AppModule con MySQL', () => {
       .expect(201);
 
     const search = await http().get('/api/products?q=100%25').expect(200);
-    expect(search.body.map((p: { sku: string }) => p.sku)).toEqual(['SKU-1']);
+    expect(search.body.items.map((p: { sku: string }) => p.sku)).toEqual(['SKU-1']);
 
     await http()
       .patch(`/api/products/${created.body.id}`)

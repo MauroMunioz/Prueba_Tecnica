@@ -10,7 +10,7 @@ API REST de inventario de productos hecha con NestJS y MySQL, con un frontend en
 | Validación y documentación | class-validator 0.14, class-transformer 0.5, @nestjs/swagger 11.4 |
 | Configuración | @nestjs/config 4.0 (variables de entorno y `.env`) |
 | Base de datos | MySQL 8.4 |
-| Frontend | Next.js 16.4 (App Router), React 19.3, Tailwind CSS 4.3, TypeScript 5.9, ESLint 9 |
+| Frontend | Next.js 16.4 (App Router), React 19.3, Tailwind CSS 4.3, lucide-react 1 (íconos), TypeScript 5.9, ESLint 9 |
 | Pruebas | Jest 29.7, ts-jest 29.4, supertest 7.3 |
 | Contenedores | Docker Compose, imágenes `node:22-alpine` y `mysql:8.4` |
 
@@ -110,7 +110,6 @@ Lo leen Docker Compose y la API cuando corre fuera de Docker.
 | `WEB_PORT` | `3001` | Puerto del frontend publicado en el host. |
 | `API_PORT` | `3000` | Puerto de la API publicado en el host. |
 | `DB_PORT` | `3306` | Puerto de MySQL publicado en el host. Dentro de Docker la API siempre usa 3306. |
-| `NEXT_PUBLIC_CURRENCY` | `COP` | Moneda de los precios en el frontend (`COP` o `USD`). Solo cambia el formato, no convierte valores. Se aplica al construir la imagen `web`. |
 | `DB_HOST` | `localhost` | Host de MySQL para la API fuera de Docker. En Docker, compose fija `mysql`. |
 | `PORT` | `3000` | Puerto de la API fuera de Docker. En Docker, compose fija `3000`. |
 | `DB_TEST_DATABASE` | `pretrabajo_test` | Base para `npm run test:int`. Se borra y recrea en cada ejecución, y debe terminar en `_test`. |
@@ -122,9 +121,10 @@ Solo para el frontend fuera de Docker; se copia a `web/.env.local`.
 | Variable | Valor por defecto | Uso |
 |---|---|---|
 | `API_URL` | `http://localhost:3000` | Dirección a la que Next reenvía `/api/*`. En Docker, compose la fija en `http://api:3000`. |
-| `NEXT_PUBLIC_CURRENCY` | `COP` | Igual que en la raíz. |
 
-`API_URL` y `NEXT_PUBLIC_CURRENCY` se fijan al compilar el frontend. En Docker, cambiarlas exige reconstruir la imagen con `docker compose up -d --build web`.
+`API_URL` se fija al compilar el frontend. En Docker, cambiarla exige reconstruir la imagen con `docker compose up -d --build web`.
+
+Los precios se muestran en dólares (USD) con el formato regional de Ecuador (`es-EC`), por ejemplo `$1.234,50`.
 
 ## Base de datos
 
@@ -160,7 +160,7 @@ Todas las rutas están bajo el prefijo `/api`.
 
 | Método | Ruta | Descripción | Respuestas |
 |---|---|---|---|
-| GET | `/api/products` | Lista los productos ordenados por id. Con `?q=texto` filtra por nombre. | 200, 400 |
+| GET | `/api/products` | Lista los productos paginados, ordenados por id. Acepta `q`, `page` y `limit`. | 200, 400 |
 | GET | `/api/products/:id` | Obtiene un producto. | 200, 400, 404 |
 | POST | `/api/products` | Crea un producto. | 201, 400, 409 |
 | PATCH | `/api/products/:id` | Actualiza solo los campos enviados. | 200, 400, 404, 409 |
@@ -182,6 +182,12 @@ Todas las rutas están bajo el prefijo `/api`.
 
 **Búsqueda (`q`):** busca el texto dentro del nombre sin distinguir mayúsculas. Los caracteres `%` y `_` se buscan literalmente, no como comodines. Un `q` vacío o solo con espacios no filtra.
 
+**Paginación (`page` y `limit`):** `page` empieza en 1 y vale 1 por defecto. `limit` va de 1 a 100 y vale 10 por defecto. Una página fuera de rango no es error: devuelve `items` vacío con el `total` real. La respuesta tiene esta forma:
+
+```json
+{ "items": [ { "id": 1, "sku": "SKU-001", "...": "..." } ], "total": 23, "page": 1, "limit": 10, "totalPages": 3 }
+```
+
 **Formato de los errores:** es el de Nest. `message` es una lista en los errores de validación (un mensaje por campo) y un texto en los demás casos:
 
 ```json
@@ -198,8 +204,11 @@ curl -X POST http://localhost:3000/api/products \
   -H "Content-Type: application/json" \
   -d '{"sku":"SKU-001","name":"Mesa de roble","price":199.99,"stock":3}'
 
-# Listar todo (200)
+# Primera pagina, 10 por pagina (200)
 curl http://localhost:3000/api/products
+
+# Segunda pagina de 5 en 5 (200)
+curl "http://localhost:3000/api/products?page=2&limit=5"
 
 # Buscar por nombre (200); %25 es el caracter % codificado en la URL
 curl "http://localhost:3000/api/products?q=mesa"
@@ -231,7 +240,7 @@ curl -X POST http://localhost:3000/api/products \
 
 # Id invalido -> 400
 curl http://localhost:3000/api/products/abc
-# {"message":"El id debe ser un numero entero positivo","error":"Bad Request","statusCode":400}
+# {"message":"El id debe ser un número entero positivo","error":"Bad Request","statusCode":400}
 
 # Id inexistente -> 404
 curl http://localhost:3000/api/products/999
@@ -246,23 +255,25 @@ npm install
 npm test
 ```
 
-`npm test` corre las pruebas unitarias y las e2e (26 en total). También se pueden correr por separado con `npm run test:unit` y `npm run test:e2e`.
+`npm test` corre las pruebas unitarias y las e2e (36 en total). También se pueden correr por separado con `npm run test:unit` y `npm run test:e2e`.
 
-**Unitarias (`api/src/products/products.service.spec.ts`, 12 pruebas).** Prueban `ProductsService` con el repositorio reemplazado por mocks de Jest:
+**Unitarias (`api/src/products/products.service.spec.ts`, 14 pruebas).** Prueban `ProductsService` con el repositorio reemplazado por mocks de Jest:
 
 - El listado pasa la búsqueda al repositorio, y un `q` vacío no filtra.
+- La página y el tamaño se convierten en offset, y se calcula el total de páginas.
 - Si el producto no existe, `findOne`, `update` y `remove` lanzan 404.
 - `DuplicateSkuError` se convierte en 409 al crear y al actualizar.
 - Otros errores del repositorio se propagan sin transformarse.
 
-**E2e (`api/test/products.e2e-spec.ts`, 14 pruebas).** Hacen peticiones HTTP reales con supertest contra la aplicación Nest: controller, service, `ValidationPipe` global y el prefijo `/api`. Cubren:
+**E2e (`api/test/products.e2e-spec.ts`, 22 pruebas).** Hacen peticiones HTTP reales con supertest contra la aplicación Nest: controller, service, `ValidationPipe` global y el prefijo `/api`. Cubren:
 
 - crear un producto válido → 201, con el SKU recortado y la respuesta completa;
 - `price` 0 → 400, y sin `name` → 400, con sus mensajes;
 - SKU repetido → 409;
 - id inexistente en `GET`, `PATCH` y `DELETE` → 404;
 - actualizar y luego eliminar, comprobando que ambos cambios se reflejan en el listado;
-- `null` en `sku`, `name`, `price` o `stock` → 400 (no 500), sin modificar el producto.
+- `null` en `sku`, `name`, `price` o `stock` → 400 (no 500), sin modificar el producto;
+- paginación: valores por defecto, tramo correcto con `page` y `limit`, total que respeta la búsqueda, y 400 con `page` o `limit` inválidos.
 
 **Por qué corren sin MySQL:**
 
@@ -270,10 +281,11 @@ npm test
 - Las e2e montan la app con `createTestApp()` (`api/test/support/`), que usa `InMemoryProductsRepository` en lugar de la implementación TypeORM. Esto es posible porque el service depende de la clase abstracta `ProductsRepository`, no de TypeORM. Las e2e no importan `AppModule` ni `ProductsModule`, que abrirían la conexión a MySQL.
 - La app de prueba usa la misma `configureApp()` que `main.ts`, así que la validación y el prefijo son los mismos que en producción.
 
-**Integración (`npm run test:int`, 19 pruebas).** Estas sí necesitan MySQL, por ejemplo con `docker compose up -d mysql`. Usan la base `DB_TEST_DATABASE`, que se borra y se recrea desde `schema.sql` en cada ejecución. Cubren lo que las e2e no pueden:
+**Integración (`npm run test:int`, 22 pruebas).** Estas sí necesitan MySQL, por ejemplo con `docker compose up -d mysql`. Usan la base `DB_TEST_DATABASE`, que se borra y se recrea desde `schema.sql` en cada ejecución. Cubren lo que las e2e no pueden:
 
 - la conversión de `ER_DUP_ENTRY` a `DuplicateSkuError`;
 - el escape de `%` y `_` en la búsqueda;
+- la paginación con `LIMIT`/`OFFSET` y el `COUNT` con el mismo filtro;
 - que `price` llegue como número y `createdAt` sin desfase horario;
 - que un `PATCH` no vuelva a crear un producto borrado por otra petición a la vez;
 - la aplicación completa con `AppModule` y MySQL.
@@ -318,15 +330,17 @@ El frontend no tiene pruebas automatizadas. Se verifica con `npm run lint`, `npm
     │       ├── ProductTable.tsx            tabla con estados de carga, vacío y error
     │       ├── ProductForm.tsx             formulario de crear y editar
     │       ├── SearchBar.tsx               búsqueda con debounce
+    │       ├── Pagination.tsx              página, tamaño (5, 10, 25, 100) y navegación
     │       ├── ConfirmDialog.tsx           confirmación de borrado
-    │       └── ui/                         Button, Modal, Notice
+    │       └── ui/                         Button, Modal (con animación), Notice, Tooltip
     └── lib/
         ├── api.ts, api-error.ts            cliente HTTP tipado y ApiError
         ├── types.ts                        tipos del contrato con la API
         ├── validation.ts                   reglas de validación del formulario
         ├── form-errors.ts                  errores de la API por campo
         ├── format.ts                       formato de precio y fecha
-        └── hooks/use-products.ts           carga de la lista
+        ├── pagination.ts                   tamaños de página del selector
+        └── hooks/use-products.ts           carga de la página actual
 ```
 
 ## Decisiones técnicas
@@ -358,6 +372,7 @@ El frontend no tiene pruebas automatizadas. Se verifica con `npm run lint`, `npm
 - **Proxy en lugar de CORS.** El navegador llama a `/api` en el mismo origen y Next lo reenvía a la API con `rewrites`. No hace falta configurar CORS ni exponer la dirección interna de la API.
 - **Componentes de cliente solo donde hay interactividad.** `page.tsx` y `layout.tsx` son de servidor. La lista se carga en el cliente porque depende de la búsqueda y se recarga después de cada operación.
 - **Validación en el cliente con las mismas reglas que la API.** Da respuesta inmediata, pero la autoridad sigue siendo el servidor. Los 400 de la API se asocian al campo correspondiente y el 409 se muestra en el SKU.
+- **Paginación en el servidor.** La API devuelve una página y el total (`SELECT` con `LIMIT`/`OFFSET` y un `COUNT` con el mismo filtro), así el navegador nunca recibe la tabla completa. El frontend muestra los controles cuando hay más de 5 productos, ofrece 5, 10, 25 o 100 por página y vuelve a la página 1 al cambiar la búsqueda o el tamaño. Si se borra el último producto de la última página, pasa a la anterior.
 - **Diálogos con `<dialog>` nativo.** El navegador resuelve el foco, la tecla Escape y el fondo inerte, sin librerías.
 
 ### Docker
@@ -368,7 +383,7 @@ El frontend no tiene pruebas automatizadas. Se verifica con `npm run lint`, `npm
 
 ### Limitaciones conocidas
 
-- El listado no tiene paginación, y un `LIKE '%texto%'` no usa índices. Con muchos productos agregaría paginación y un índice `FULLTEXT`.
+- La paginación usa `OFFSET`, que con páginas muy altas recorre todas las filas que salta; con muchos productos usaría paginación por cursor (`WHERE id > ?`). Además, un `LIKE '%texto%'` no usa índices; agregaría un índice `FULLTEXT`.
 - No hay autenticación, y las contraseñas por defecto y el puerto 3306 expuesto son solo para desarrollo.
 - Si dos personas editan el mismo producto a la vez, gana la última. Se resolvería con una columna de versión (`@VersionColumn`) y respondiendo 409.
 - La unicidad del SKU no distingue mayúsculas ni acentos (`SKU-1` y `sku-1` chocan), por la collation `utf8mb4_unicode_ci`.

@@ -1,5 +1,11 @@
 import { ApiError } from './api-error';
-import type { Product, ProductInput, ProductUpdate } from './types';
+import type {
+  Product,
+  ProductInput,
+  ProductListParams,
+  ProductPage,
+  ProductUpdate,
+} from './types';
 
 export { ApiError } from './api-error';
 
@@ -26,7 +32,7 @@ async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
   } catch (error) {
     // Una cancelacion no es un fallo: quien cancelo decide que hacer
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
-    throw new ApiError(0, 'No se pudo conectar con el servidor. Revisa tu conexion.');
+    throw new ApiError(0, 'No se pudo conectar con el servidor. Revisa tu conexión.');
   }
 
   if (response.status === 204) {
@@ -51,14 +57,18 @@ function extractMessage(body: unknown, status: number): string | string[] {
   }
   // Sin cuerpo de Nest: por ejemplo, el proxy no alcanzo la API
   return status >= 500
-    ? 'El servidor no esta disponible en este momento. Intenta mas tarde.'
+    ? 'El servidor no está disponible en este momento. Intenta más tarde.'
     : `Error inesperado (${status}).`;
 }
 
-export function listProducts(q?: string, options: RequestOptions = {}): Promise<Product[]> {
+export function listProducts(
+  { q, page, limit }: ProductListParams,
+  options: RequestOptions = {},
+): Promise<ProductPage> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
   const search = q?.trim();
-  const url = search ? `${PRODUCTS_URL}?${new URLSearchParams({ q: search })}` : PRODUCTS_URL;
-  return request<Product[]>(url, { signal: options.signal });
+  if (search) params.set('q', search);
+  return request<ProductPage>(`${PRODUCTS_URL}?${params}`, { signal: options.signal });
 }
 
 export function getProduct(id: number, options: RequestOptions = {}): Promise<Product> {

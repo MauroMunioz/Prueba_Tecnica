@@ -1,6 +1,7 @@
 import { DataSource, QueryFailedError } from 'typeorm';
 import { Product } from '../../src/products/entities/product.entity';
 import { DuplicateSkuError } from '../../src/products/errors/duplicate-sku.error';
+import { Page } from '../../src/products/repositories/products.repository';
 import { TypeOrmProductsRepository } from '../../src/products/repositories/typeorm-products.repository';
 import { createTestDataSource } from './support/test-data-source';
 
@@ -112,7 +113,7 @@ describe('TypeOrmProductsRepository (MySQL)', () => {
       }
     });
 
-    const names = (products: Product[]) => products.map((p) => p.name);
+    const names = (page: Page<Product>) => page.items.map((p) => p.name);
 
     it('sin filtro devuelve todo ordenado por id', async () => {
       expect(names(await repo.findAll())).toEqual([
@@ -143,6 +144,26 @@ describe('TypeOrmProductsRepository (MySQL)', () => {
 
     it('el caracter de escape ! tambien se busca literal', async () => {
       expect(names(await repo.findAll({ name: '!o' }))).toEqual(['Caja !oferta']);
+    });
+
+    it('pagina con offset y limit, y total cuenta todas las filas', async () => {
+      const page = await repo.findAll({}, { offset: 2, limit: 2 });
+
+      expect(names(page)).toEqual(['Silla_azul', 'Sillas azul']);
+      expect(page.total).toBe(5);
+    });
+
+    it('el total respeta el filtro, no solo la pagina', async () => {
+      const page = await repo.findAll({ name: 'mesa' }, { offset: 0, limit: 1 });
+
+      expect(names(page)).toEqual(['Mesa 100% roble']);
+      expect(page.total).toBe(2);
+    });
+
+    it('una pagina fuera de rango devuelve items vacio y el total real', async () => {
+      const page = await repo.findAll({}, { offset: 100, limit: 5 });
+
+      expect(page).toEqual({ items: [], total: 5 });
     });
   });
 

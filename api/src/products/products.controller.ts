@@ -25,6 +25,7 @@ import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
 import { CreateProductDto } from './dto/create-product.dto';
 import { FindProductsQueryDto } from './dto/find-products-query.dto';
+import { PaginatedProductsDto } from './dto/paginated-products.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
 import { ProductsService } from './products.service';
@@ -43,10 +44,12 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Listar productos, opcionalmente filtrando por nombre' })
-  @ApiOkResponse({ type: Product, isArray: true })
-  findAll(@Query() query: FindProductsQueryDto): Promise<Product[]> {
-    return this.productsService.findAll(query.q);
+  @ApiOperation({
+    summary: 'Listar productos paginados, opcionalmente filtrando por nombre',
+  })
+  @ApiOkResponse({ type: PaginatedProductsDto })
+  findAll(@Query() query: FindProductsQueryDto): Promise<PaginatedProductsDto> {
+    return this.productsService.findAll(query);
   }
 
   @Get(':id')

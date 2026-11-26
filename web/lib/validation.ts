@@ -38,7 +38,7 @@ function validateName(raw: string): string | undefined {
   }
 }
 
-// Se acepta coma como separador decimal, habitual al escribir precios en COP
+// Se acepta coma como separador decimal, habitual al escribir precios en Ecuador
 function normalizeDecimal(raw: string): string {
   return raw.trim().replace(',', '.');
 }
@@ -46,11 +46,11 @@ function normalizeDecimal(raw: string): string {
 function validatePrice(raw: string): string | undefined {
   const value = normalizeDecimal(raw);
   if (!value) return 'El precio es obligatorio';
-  if (!/^-?\d+(\.\d+)?$/.test(value)) return 'El precio debe ser un numero';
+  if (!/^-?\d+(\.\d+)?$/.test(value)) return 'El precio debe ser un número';
   const price = Number(value);
   if (price <= 0) return 'El precio debe ser mayor que 0';
   if (!/^\d+(\.\d{1,2})?$/.test(value)) {
-    return 'El precio debe ser un numero con maximo 2 decimales';
+    return 'El precio debe ser un número con máximo 2 decimales';
   }
   if (price > PRODUCT_LIMITS.priceMax) {
     return `El precio no puede superar ${PRODUCT_LIMITS.priceMax}`;
@@ -61,7 +61,7 @@ function validateStock(raw: string): string | undefined {
   const value = raw.trim();
   if (!value) return 'El stock es obligatorio (usa 0 si no hay unidades)';
   if (/^-\d+$/.test(value)) return 'El stock no puede ser negativo';
-  if (!/^\d+$/.test(value)) return 'El stock debe ser un numero entero';
+  if (!/^\d+$/.test(value)) return 'El stock debe ser un número entero';
   if (Number(value) > PRODUCT_LIMITS.stockMax) {
     return `El stock no puede superar ${PRODUCT_LIMITS.stockMax}`;
   }

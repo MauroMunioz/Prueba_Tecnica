@@ -15,7 +15,7 @@ function toMessages(errors: ValidationError[], parent = ''): string[] {
     const path = parent ? `${parent}.${error.property}` : error.property;
     const own = Object.entries(error.constraints ?? {}).map(([key, message]) =>
       key === WHITELIST_CONSTRAINT
-        ? `La propiedad "${path}" no esta permitida`
+        ? `La propiedad "${path}" no está permitida`
         : message,
     );
     return [...own, ...toMessages(error.children ?? [], path)];

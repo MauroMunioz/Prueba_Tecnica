@@ -50,7 +50,7 @@ export class CreateProductDto {
   name!: string;
 
   @ApiProperty({
-    description: 'Precio mayor que 0, con maximo 2 decimales.',
+    description: 'Precio mayor que 0, con máximo 2 decimales.',
     example: 199.99,
     exclusiveMinimum: true,
     minimum: 0,
@@ -61,7 +61,7 @@ export class CreateProductDto {
   @IsPositive({ message: 'El precio debe ser mayor que 0' })
   @IsNumber(
     { maxDecimalPlaces: 2, allowNaN: false, allowInfinity: false },
-    { message: 'El precio debe ser un numero con maximo 2 decimales' },
+    { message: 'El precio debe ser un número con máximo 2 decimales' },
   )
   @IsDefined({ message: 'El precio es obligatorio' })
   price!: number;
@@ -78,7 +78,7 @@ export class CreateProductDto {
   })
   @Max(STOCK_MAX, { message: `El stock no puede superar ${STOCK_MAX}` })
   @Min(0, { message: 'El stock no puede ser negativo' })
-  @IsInt({ message: 'El stock debe ser un numero entero' })
+  @IsInt({ message: 'El stock debe ser un número entero' })
   @ValidateIf((_, value) => value !== undefined)
   stock?: number;
 }

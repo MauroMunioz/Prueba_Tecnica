@@ -1,6 +1,8 @@
 'use client';
 
+import { Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Tooltip } from './ui/Tooltip';
 
 interface SearchBarProps {
   /** Recibe el texto ya recortado, 300 ms despues de la ultima tecla */
@@ -31,18 +33,10 @@ export function SearchBar({ onSearch, delayMs = 300 }: SearchBarProps) {
       <label htmlFor="product-search" className="sr-only">
         Buscar productos por nombre
       </label>
-      <svg
-        viewBox="0 0 20 20"
-        fill="currentColor"
+      <Search
         aria-hidden="true"
         className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
-      >
-        <path
-          fillRule="evenodd"
-          d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.45 4.39l3.08 3.08a.75.75 0 1 1-1.06 1.06l-3.08-3.08A7 7 0 0 1 2 9Z"
-          clipRule="evenodd"
-        />
-      </svg>
+      />
       <input
         id="product-search"
         type="text"
@@ -57,19 +51,21 @@ export function SearchBar({ onSearch, delayMs = 300 }: SearchBarProps) {
         onKeyDown={(event) => {
           if (event.key === 'Escape' && text) clear();
         }}
-        className="h-10 w-full rounded-lg border border-slate-300 bg-white pr-9 pl-9 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200 focus:outline-none"
+        className="h-10 w-full rounded-lg border border-slate-300 bg-white pr-10 pl-9 text-sm text-slate-900 shadow-xs transition-shadow placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-100 focus:outline-none"
       />
       {text && (
-        <button
-          type="button"
-          onClick={clear}
-          aria-label="Limpiar busqueda"
-          className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-700 focus-visible:outline-2"
-        >
-          <svg viewBox="0 0 20 20" fill="currentColor" className="size-4" aria-hidden="true">
-            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-          </svg>
-        </button>
+        <span className="absolute top-1/2 right-1.5 -translate-y-1/2">
+          <Tooltip label="Limpiar (Esc)" align="end">
+            <button
+              type="button"
+              onClick={clear}
+              aria-label="Limpiar búsqueda"
+              className="grid size-7 place-items-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-brand-600"
+            >
+              <X className="size-4" />
+            </button>
+          </Tooltip>
+        </span>
       )}
     </div>
   );

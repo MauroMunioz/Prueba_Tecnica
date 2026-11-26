@@ -12,7 +12,7 @@ export class ParseIdPipe implements PipeTransform<string, number> {
   transform(value: string): number {
     const id = /^[1-9]\d*$/.test(value) ? Number(value) : NaN;
     if (!Number.isSafeInteger(id) || id > ID_MAX) {
-      throw new BadRequestException('El id debe ser un numero entero positivo');
+      throw new BadRequestException('El id debe ser un número entero positivo');
     }
     return id;
   }

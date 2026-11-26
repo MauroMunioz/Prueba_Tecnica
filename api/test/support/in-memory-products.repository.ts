@@ -4,6 +4,8 @@ import { DuplicateSkuError } from '../../src/products/errors/duplicate-sku.error
 import {
   CreateProductData,
   FindProductsFilter,
+  Page,
+  PageRequest,
   ProductsRepository,
   UpdateProductData,
 } from '../../src/products/repositories/products.repository';
@@ -19,14 +21,16 @@ export class InMemoryProductsRepository extends ProductsRepository {
   private readonly rows = new Map<number, Product>();
   private nextId = 1;
 
-  findAll(filter: FindProductsFilter = {}): Promise<Product[]> {
+  findAll(filter: FindProductsFilter = {}, page?: PageRequest): Promise<Page<Product>> {
     // includes() ya es una busqueda literal, equivalente al LIKE con comodines escapados
     const needle = filter.name?.toLowerCase();
-    const result = [...this.rows.values()]
+    const matches = [...this.rows.values()]
       .filter((p) => !needle || p.name.toLowerCase().includes(needle))
-      .sort((a, b) => a.id - b.id)
-      .map(clone);
-    return Promise.resolve(result);
+      .sort((a, b) => a.id - b.id);
+    const items = page
+      ? matches.slice(page.offset, page.offset + page.limit)
+      : matches;
+    return Promise.resolve({ items: items.map(clone), total: matches.length });
   }
 
   findById(id: number): Promise<Product | null> {

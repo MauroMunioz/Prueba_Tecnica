@@ -52,7 +52,6 @@ services:
         # El navegador llama a /api en el mismo origen y el servidor de Next lo
         # reenvia a la API por la red interna. Queda fijo en el build.
         API_URL: http://api:3000
-        NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-COP}
     restart: unless-stopped
     depends_on:
       - api

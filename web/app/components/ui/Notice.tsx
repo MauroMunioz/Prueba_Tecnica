@@ -1,13 +1,23 @@
 'use client';
 
+import { CircleAlert, CircleCheck, TriangleAlert, X } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
 
 export type NoticeTone = 'success' | 'warning' | 'error';
 
-const tones: Record<NoticeTone, string> = {
-  success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-  warning: 'border-amber-200 bg-amber-50 text-amber-900',
-  error: 'border-red-200 bg-red-50 text-red-800',
+const tones: Record<NoticeTone, { box: string; icon: ReactNode }> = {
+  success: {
+    box: 'border-l-emerald-500 [&_.notice-icon]:text-emerald-600',
+    icon: <CircleCheck />,
+  },
+  warning: {
+    box: 'border-l-amber-500 [&_.notice-icon]:text-amber-600',
+    icon: <TriangleAlert />,
+  },
+  error: {
+    box: 'border-l-accent-500 [&_.notice-icon]:text-accent-600',
+    icon: <CircleAlert />,
+  },
 };
 
 interface NoticeProps {
@@ -18,6 +28,7 @@ interface NoticeProps {
   autoHideMs?: number;
 }
 
+/** Aviso flotante en la esquina superior derecha */
 export function Notice({ tone, children, onDismiss, autoHideMs }: NoticeProps) {
   useEffect(() => {
     if (!autoHideMs || !onDismiss) return;
@@ -26,23 +37,24 @@ export function Notice({ tone, children, onDismiss, autoHideMs }: NoticeProps) {
   }, [autoHideMs, onDismiss]);
 
   return (
-    <div
-      role={tone === 'success' ? 'status' : 'alert'}
-      className={`flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${tones[tone]}`}
-    >
-      <div>{children}</div>
-      {onDismiss && (
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Cerrar aviso"
-          className="-m-1 rounded p-1 opacity-70 hover:opacity-100 focus-visible:outline-2"
-        >
-          <svg viewBox="0 0 20 20" fill="currentColor" className="size-4" aria-hidden="true">
-            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-          </svg>
-        </button>
-      )}
+    <div className="pointer-events-none fixed inset-x-4 top-20 z-50 flex justify-end sm:left-auto sm:w-96">
+      <div
+        role={tone === 'success' ? 'status' : 'alert'}
+        className={`animate-toast-in pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-l-4 border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-lg ${tones[tone].box}`}
+      >
+        <span className="notice-icon mt-0.5 shrink-0 [&_svg]:size-5">{tones[tone].icon}</span>
+        <div className="min-w-0 flex-1">{children}</div>
+        {onDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Cerrar aviso"
+            className="-m-1 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-brand-600"
+          >
+            <X className="size-4" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

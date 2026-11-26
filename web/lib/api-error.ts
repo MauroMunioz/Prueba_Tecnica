@@ -26,5 +26,5 @@ export class ApiError extends Error {
 
 export function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
-  return 'Ocurrio un error inesperado. Intenta de nuevo.';
+  return 'Ocurrió un error inesperado. Intenta de nuevo.';
 }

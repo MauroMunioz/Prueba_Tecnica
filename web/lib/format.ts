@@ -1,35 +1,27 @@
-// Moneda en la que se muestran los precios: COP (por defecto) o USD.
-// Se fija con NEXT_PUBLIC_CURRENCY al compilar. Solo cambia el formato, no convierte valores.
-export type Currency = 'COP' | 'USD';
+// Los precios estan en dolares (moneda oficial de Ecuador) y se muestran con
+// el formato regional es-EC: $1.234,50
+export const CURRENCY = 'USD';
 
-export const CURRENCY: Currency =
-  process.env.NEXT_PUBLIC_CURRENCY?.toUpperCase() === 'USD' ? 'USD' : 'COP';
+const LOCALE = 'es-EC';
 
-const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-
-// En COP los centavos casi no se usan: $ 450.000 si es entero, $ 12,50 si no
-const copIntegerFormatter = new Intl.NumberFormat('es-CO', {
+const priceFormatter = new Intl.NumberFormat(LOCALE, {
   style: 'currency',
-  currency: 'COP',
-  maximumFractionDigits: 0,
-});
-const copDecimalFormatter = new Intl.NumberFormat('es-CO', {
-  style: 'currency',
-  currency: 'COP',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
+  currency: CURRENCY,
 });
 
-const dateFormatter = new Intl.DateTimeFormat('es-CO', {
+const numberFormatter = new Intl.NumberFormat(LOCALE);
+
+const dateFormatter = new Intl.DateTimeFormat(LOCALE, {
   dateStyle: 'medium',
   timeStyle: 'short',
 });
 
 export function formatPrice(value: number): string {
-  if (CURRENCY === 'USD') return usdFormatter.format(value);
-  return Number.isInteger(value)
-    ? copIntegerFormatter.format(value)
-    : copDecimalFormatter.format(value);
+  return priceFormatter.format(value);
+}
+
+export function formatNumber(value: number): string {
+  return numberFormatter.format(value);
 }
 
 /** Convierte la fecha UTC de la API a la zona horaria del navegador */

@@ -12,9 +12,6 @@ WORKDIR /app
 # tiene que existir aqui, no solo al ejecutar el contenedor
 ARG API_URL=http://api:3000
 ENV API_URL=${API_URL}
-# Las variables NEXT_PUBLIC_* se incrustan en el JS del navegador durante el build
-ARG NEXT_PUBLIC_CURRENCY=COP
-ENV NEXT_PUBLIC_CURRENCY=${NEXT_PUBLIC_CURRENCY}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules
