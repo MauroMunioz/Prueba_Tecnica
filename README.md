@@ -331,21 +331,49 @@ El frontend no tiene pruebas automatizadas. Se verifica con `npm run lint`, `npm
 
 ## Decisiones técnicas
 
-> Borrador para reescribir.
+### Backend
 
-- **El esquema manda.** La base se define en `database/schema.sql` y TypeORM tiene `synchronize: false`; la entidad solo mapea la tabla. Así el esquema queda versionado como SQL legible y la aplicación nunca altera la base al arrancar.
-- **Repositorio abstracto.** `ProductsService` depende de la clase abstracta `ProductsRepository`. En producción se inyecta `TypeOrmProductsRepository`; en las e2e, `InMemoryProductsRepository`. Gracias a eso, las e2e corren sin base de datos.
-- **Errores de dominio.** El repositorio convierte el `ER_DUP_ENTRY` de MySQL en `DuplicateSkuError`, y el service lo traduce a 409. Así la capa HTTP no depende de los códigos de MySQL.
-- **Precios en `DECIMAL(10,2)`.** Evita errores de redondeo al guardar. mysql2 devuelve `DECIMAL` como texto, y un transformer de la entidad lo convierte a número.
-- **Fechas en UTC.** MySQL corre en UTC y la conexión usa `timezone: 'Z'`. El frontend convierte a la zona horaria del navegador.
-- **Búsqueda literal.** `?q=` escapa `%`, `_` y el carácter de escape `!` antes del `LIKE`, con `ESCAPE '!'` explícito.
-- **Validación estricta.** `ValidationPipe` global con `whitelist`, `forbidNonWhitelisted` y `stopAtFirstError`: rechaza propiedades desconocidas y devuelve un mensaje por campo, en español. Los ids de ruta usan un pipe propio (`ParseIdPipe`), porque `ParseIntPipe` acepta negativos.
-- **Una sola configuración para app y pruebas.** `configureApp()` aplica el prefijo `/api` y el `ValidationPipe`, y se usa en `main.ts` y en las pruebas.
-- **Proxy en lugar de CORS.** El frontend llama a `/api` en su propio origen y Next lo reenvía a la API con `rewrites`. `API_URL` se fija al compilar, porque los rewrites se resuelven en el build.
+- **Capas separadas.** El controller solo traduce HTTP, el service tiene las reglas de negocio y el repositorio el acceso a datos. El service depende de una clase abstracta, `ProductsRepository`, y no de TypeORM. Usé una clase abstracta y no una interfaz porque las interfaces desaparecen al compilar y Nest necesita un token que exista en tiempo de ejecución para inyectarla.
+- **Errores de dominio.** El repositorio convierte el `ER_DUP_ENTRY` de MySQL en `DuplicateSkuError` y el service lo traduce a 409. Así la capa HTTP no conoce los códigos de MySQL.
+- **El SKU único lo garantiza la base.** No consulto si el SKU existe antes de insertar, porque dos peticiones simultáneas podrían pasar la consulta a la vez. El índice único `uq_products_sku` es la única fuente de verdad.
+- **Actualización con `UPDATE` directo.** Al principio usaba `findOneBy` y después `save()`. Pero `save()` inserta la fila si ya no existe, así que si otra petición borraba el producto en medio, el `PATCH` lo volvía a crear. Lo cambié por un `UPDATE` que revisa las filas afectadas, y agregué una prueba de integración que reproduce el caso.
+- **Validación estricta.** El `ValidationPipe` global usa `whitelist`, `forbidNonWhitelisted` y `stopAtFirstError`: rechaza propiedades desconocidas (un `prize` mal escrito no se ignora en silencio) y devuelve un mensaje por campo, en español. Un `null` se valida igual que cualquier otro valor; antes pasaba la validación y terminaba en un 500 de MySQL. Los ids de ruta usan un pipe propio (`ParseIdPipe`), porque `ParseIntPipe` acepta negativos.
+- **`PATCH` y no `PUT`.** Permite actualizar solo los campos enviados, que es lo que hace el formulario.
+- **Una sola configuración para la app y las pruebas.** `configureApp()` aplica el prefijo `/api` y el `ValidationPipe`, y la usan tanto `main.ts` como los tests. Así las pruebas validan exactamente lo mismo que producción.
+
+### Base de datos
+
+- **El esquema manda.** La tabla se define en `database/schema.sql` y TypeORM tiene `synchronize: false`. La aplicación nunca modifica la base al arrancar.
+- **Precios en `DECIMAL(10,2)`.** `FLOAT` no representa importes como 0,10 con exactitud. mysql2 devuelve `DECIMAL` como texto, y un transformer lo convierte a número; con el máximo de 99.999.999,99 no se pierde precisión.
+- **Fechas en UTC.** MySQL corre en UTC y la conexión usa `timezone: 'Z'`. Sin eso, `createdAt` salía con 5 horas de desfase. El frontend convierte a la zona horaria del navegador.
+- **Búsqueda literal.** `?q=` escapa `%`, `_` y el carácter de escape `!`, con `ESCAPE '!'` explícito para no depender de la configuración de MySQL. El valor va como parámetro, así que no hay inyección SQL.
+
+### Pruebas
+
+- **`npm test` sin base de datos.** Las unitarias usan mocks y las e2e montan la app con `InMemoryProductsRepository`, gracias al repositorio abstracto. Así cualquiera puede correrlas recién clonado el proyecto.
+- **Integración contra MySQL real.** Lo que depende de la base (índice único, `DECIMAL`, zona horaria, escape del `LIKE`) se prueba aparte con `npm run test:int`, sobre una base `_test` que se recrea en cada ejecución.
+
+### Frontend
+
+- **Proxy en lugar de CORS.** El navegador llama a `/api` en el mismo origen y Next lo reenvía a la API con `rewrites`. No hace falta configurar CORS ni exponer la dirección interna de la API.
 - **Componentes de cliente solo donde hay interactividad.** `page.tsx` y `layout.tsx` son de servidor. La lista se carga en el cliente porque depende de la búsqueda y se recarga después de cada operación.
-- **Validación en el cliente con las mismas reglas y mensajes que la API.** Los 400 de la API se asocian a cada campo según el inicio del mensaje (por ejemplo, "El precio..."); lo que no se reconoce se muestra arriba del formulario.
+- **Validación en el cliente con las mismas reglas que la API.** Da respuesta inmediata, pero la autoridad sigue siendo el servidor. Los 400 de la API se asocian al campo correspondiente y el 409 se muestra en el SKU.
 - **Diálogos con `<dialog>` nativo.** El navegador resuelve el foco, la tecla Escape y el fondo inerte, sin librerías.
-- **Docker.** Imágenes multi-stage con `node:22-alpine` y usuario no root: la API instala solo dependencias de producción y el frontend usa la salida `standalone`. El healthcheck de MySQL usa `-h 127.0.0.1` para no dar la base por lista mientras todavía se aplica `schema.sql`.
+
+### Docker
+
+- **Imágenes multi-stage con `node:22-alpine` y usuario no root.** La API instala solo dependencias de producción y el frontend usa la salida `standalone` de Next.
+- **Arranque ordenado.** La API espera a que MySQL esté sano. El healthcheck usa `-h 127.0.0.1` porque, durante el primer arranque, MySQL levanta un servidor temporal sin red para aplicar `schema.sql`; con `localhost` daría la base por lista antes de tiempo.
+- **Valores por defecto.** Todas las variables tienen un valor por defecto en `docker-compose.yml`, así que el proyecto arranca aunque no exista `.env`.
+
+### Limitaciones conocidas
+
+- El listado no tiene paginación, y un `LIKE '%texto%'` no usa índices. Con muchos productos agregaría paginación y un índice `FULLTEXT`.
+- No hay autenticación, y las contraseñas por defecto y el puerto 3306 expuesto son solo para desarrollo.
+- Si dos personas editan el mismo producto a la vez, gana la última. Se resolvería con una columna de versión (`@VersionColumn`) y respondiendo 409.
+- La unicidad del SKU no distingue mayúsculas ni acentos (`SKU-1` y `sku-1` chocan), por la collation `utf8mb4_unicode_ci`.
+- `API_URL` queda fija al construir la imagen del frontend; cambiarla exige reconstruirla.
+- El frontend no tiene pruebas automatizadas; se verifica con lint, typecheck y build.
 
 ## Uso de IA
 
